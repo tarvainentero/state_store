@@ -65,12 +65,12 @@ class StateStore {
 
   static void setUp<V>(
     String id,
-    V value,
+    V defaultValue,
     bool persist, {
     Importer importer = jsonDecode,
     Exporter exporter = jsonEncode,
   }) {
-    _instance._create(id, value, persist,
+    _instance._create(id, defaultValue, persist,
         importer: importer, exporter: exporter);
   }
 
