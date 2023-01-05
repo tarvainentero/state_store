@@ -1,40 +1,103 @@
-<!--
-This README describes the package. If you publish this package to pub.dev,
-this README's contents appear on the landing page for your package.
-
-For information about how to write a good package README, see the guide for
-[writing package pages](https://dart.dev/guides/libraries/writing-package-pages).
-
-For general information about developing packages, see the Dart guide for
-[creating packages](https://dart.dev/guides/libraries/create-library-packages)
-and the Flutter guide for
-[developing packages and plugins](https://flutter.dev/developing-packages).
--->
-
 # state_store
 
-Simple state management for Flutter
+Simple state management package for Flutter.
 
 ## Features
 
-TODO: List what your package can do. Maybe include images, gifs, or videos.
-
-## Getting started
-
-TODO: List prerequisites and provide or point to information on how to
-start using the package.
+- Maintain state across the app
+- State aware builder for Widgets
+- Configurable persistence
+- Notifications for listeners
 
 ## Usage
 
-TODO: Include short and useful examples for package users. Add longer examples
-to `/example` folder.
+Basic usage:
 
 ```dart
-const like = 'sample';
+import 'package:flutter/material.dart';
+import 'package:state_store/state_store.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  /// Step 1
+  /// Set up all state variables that require initial value
+  /// or if you want to mark the variable as persisted.
+  /// (id, defaultValue, persistence)
+  ///
+  /// For more complex values also define Importer and Exporter.
+  ///
+  StateStore.setUp<int>('counter', 0, true);
+
+  /// Step 2
+  /// Use import to fetch all persisted values
+  await StateStore.import();
+
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Flutter Demo',
+      theme: ThemeData(
+        primarySwatch: Colors.blue,
+      ),
+      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+    );
+  }
+}
+
+class MyHomePage extends StatelessWidget {
+  const MyHomePage({super.key, required this.title});
+  final String title;
+
+  void _incrementCounter() {
+    /// Step 5: Use dispatch to update value. All listeners and builders
+    /// will be notified/updated
+    StateStore.dispatch('counter', StateStore.get('counter') + 1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            const Text(
+              'You have pushed the button this many times:',
+            ),
+
+            /// Step 3: Use state_store builder to handle value changes in the UI
+            StateStoreBuilder(
+              /// Step 4: Use the value in the builder function
+              builder: (context, value) => Text(
+                '$value',
+                style: Theme.of(context).textTheme.headline4,
+              ),
+              id: 'counter',
+            ),
+          ],
+        ),
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: _incrementCounter,
+        tooltip: 'Increment',
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
+}
+
 ```
 
 ## Additional information
 
-TODO: Tell users more about the package: where to find more information, how to
-contribute to the package, how to file issues, what response they can expect
-from the package authors, and more.
+This package does not really have any support to it. It is provided with 'as-is' clause.
