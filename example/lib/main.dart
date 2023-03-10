@@ -1,5 +1,10 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:state_store/state_store.dart';
+
+import 'example_complex.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -12,10 +17,21 @@ Future<void> main() async {
   /// For more complex values also define Importer and Exporter.
   ///
   StateStore.setUp<int>('counter', 0, true);
+  StateStore.setUp<String>('text', 'Tiger blood', true);
+  StateStore.setUp<Complex>('complex', Complex.demo(), true);
 
   /// Step 2
   /// Use import to fetch all persisted values
   await StateStore.import();
+
+  /// In cases where you want to use external state debugger for the state_store
+  /// NOTE: This requires socket connection entitlement
+  /// macos:
+  /// <key>com.apple.security.network.client</key>
+  /// <true/>
+  if (kDebugMode) {
+    await StateStore.connectRemoteDebugging();
+  }
 
   runApp(const MyApp());
 }
@@ -64,9 +80,64 @@ class MyHomePage extends StatelessWidget {
               /// Step 4: Use the value in the builder function
               builder: (context, value) => Text(
                 '$value',
-                style: Theme.of(context).textTheme.headline4,
+                style: Theme.of(context).textTheme.headlineMedium,
               ),
               id: 'counter',
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Random text',
+            ),
+            const SizedBox(height: 10),
+            StateStoreBuilder<String?>(
+              id: 'text',
+              builder: (context, value) => Text(
+                value ?? '',
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge!
+                    .apply(color: Colors.amber),
+              ),
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'Complex',
+            ),
+            const SizedBox(height: 10),
+            StateStoreBuilder<Complex?>(
+              id: 'complex',
+              builder: (context, value) => Column(
+                children: [
+                  Text(
+                    value?.id ?? '-',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge!
+                        .apply(color: Colors.amber),
+                  ),
+                  Text(
+                    value?.name ?? '-',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge!
+                        .apply(color: Colors.amber),
+                  ),
+                  Text(
+                    value?.description ?? '-',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge!
+                        .apply(color: Colors.amber),
+                  ),
+                  Text(
+                    value?.numbers.toString() ?? '-',
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleLarge!
+                        .apply(color: Colors.amber),
+                  ),
+                ],
+              ),
             ),
           ],
         ),

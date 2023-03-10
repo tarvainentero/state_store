@@ -4,9 +4,7 @@ import 'package:state_store/state_store.dart';
 
 void main() {
   test('adds one to input values', () {
-    final calculator = Calculator();
-    expect(calculator.addOne(2), 3);
-    expect(calculator.addOne(-7), -6);
-    expect(calculator.addOne(0), 1);
+    StateStore.dispatch('counter', 0);
+    expect(StateStore.get('calculator'), 0);
   });
 }

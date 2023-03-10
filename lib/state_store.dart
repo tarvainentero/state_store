@@ -29,9 +29,22 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:state_store/socket_client.dart';
 
 typedef Importer = dynamic Function(String val);
 typedef Exporter = String Function(dynamic val);
+
+// Default importer for json encoded values that tries to cast lists to their
+// original type. Works for default types (int, double, String, bool). For custom
+// types, the client needs to provide a custom importer in the setUp() call.
+dynamic defaultImporter(String val) {
+  var decoded = jsonDecode(val);
+
+  if (decoded is List) {
+    return _typeCastList(decoded, _isAllOfSameType(decoded));
+  }
+  return decoded;
+}
 
 /// Signature of callbacks for state changes
 typedef StateChangeCallback<V> = void Function(
@@ -48,6 +61,7 @@ class StateStore {
   final Map<String, StateElement> _store = {};
   // All elements that simply trigger events are stored here (namely the 'id' and listeners)
   final Map<String, TriggerElement> _triggers = {};
+  SocketClient? _socketClient;
 
   factory StateStore() {
     throw ArgumentError('StateStore can not be instantiated. Static only!');
@@ -67,11 +81,16 @@ class StateStore {
     String id,
     V defaultValue,
     bool persist, {
-    Importer importer = jsonDecode,
+    Importer importer = defaultImporter,
     Exporter exporter = jsonEncode,
   }) {
     _instance._create(id, defaultValue, persist,
         importer: importer, exporter: exporter);
+  }
+
+  /// Connect state store to remote debugging server
+  static Future<void> connectRemoteDebugging() async {
+    await _instance._connectRemoteDebugging();
   }
 
   /// Push state change. This will replace the old value with 'event'
@@ -81,6 +100,8 @@ class StateStore {
     _instance._dispatch(id, event, ctx: ctx);
   }
 
+  /// Same as dispatch but for array values. If such array does not yet exist
+  /// then that array is created.
   static void dispatchAddition<V>(String id, V value, {BuildContext? ctx}) {
     // print("[StateStore]:[dispatchAddition]: $id, $value");
     _instance._dispatchAddition(id, value, ctx: ctx);
@@ -283,10 +304,13 @@ class StateStore {
     if (stateElement.persist) {
       _persist(id, stateElement.export());
     }
+
+    // Always fire post processing debug trigger
+    __fireDebugStateChange();
   }
 
-  // dispatch but for array values. If such element (array) does not yet exist
-  // then it's created
+  // Dispatch but for array values. If such element (array) does not yet exist
+  // then it is created
   void _dispatchAddition(String id, dynamic value, {BuildContext? ctx}) {
     var stateElement = _store[id];
     if (stateElement == null) {
@@ -307,6 +331,9 @@ class StateStore {
     if (stateElement.persist) {
       _persist(id, stateElement.export());
     }
+
+    // Always fire post processing debug trigger
+    __fireDebugStateChange();
   }
 
   void _persist(String id, String value) {
@@ -342,6 +369,7 @@ class StateStore {
   void _dispose() {
     _store.clear();
     _triggers.clear();
+    _socketClient?.close();
   }
 
   void _prettyPrint() {
@@ -365,6 +393,43 @@ class StateStore {
     _triggers.forEach((k, v) {
       print("ID: $k, listeners count: ${v._listeners!.length}");
     });
+  }
+
+  ////////////////////////////////////////////
+  ///
+  ///   REMOTE DEBUGGING
+  ///
+  ////////////////////////////////////////////
+
+  String _export() {
+    var map = <String, dynamic>{};
+    for (var i in _store.keys) {
+      var val = _store[i]!._value;
+      bool persisted = _store[i]!.persist;
+      if (persisted) {
+        map[i + " [*]"] = val;
+      } else {
+        map[i] = val;
+      }
+    }
+    return jsonEncode(map);
+  }
+
+  /// Connect this state store to remote debugging server
+  Future<void> _connectRemoteDebugging() async {
+    try {
+      SocketClient client = SocketClient(this);
+      await client.connect();
+      _socketClient = client;
+      print("[StateStore]: Connected to remote debugging server");
+    } catch (e) {}
+  }
+
+  __fireDebugStateChange() {
+    // This is always called when the internal state changes.
+    // If we have a configured debug socket, then we will export the full state
+    // to it.
+    _socketClient?.updateFullState(_export());
   }
 }
 
@@ -553,8 +618,8 @@ class StateStoreBuilder<S> extends StateStoreBuilderBase<S> {
 
   const StateStoreBuilder({
     Key? key,
-    required this.builder,
     required String id,
+    required this.builder,
     StateStoreBuilderCondition<S>? condition,
   }) : super(key: key, id: id, condition: condition);
 
@@ -621,4 +686,37 @@ class _StateStoreBuilderBaseState<S> extends State<StateStoreBuilderBase<S?>> {
     StateStore.removeListener(_id!, listener!);
     listener = null;
   }
+}
+
+Type? _isAllOfSameType(List<dynamic> list) {
+  if (list.isEmpty) {
+    return null;
+  }
+  var first = list.first.runtimeType;
+  if (list.every((element) => element.runtimeType == first)) {
+    return first;
+  }
+  return null;
+}
+
+List _typeCastList(List<dynamic> list, Type? type) {
+  if (type == int) {
+    return list.map((e) => e as int).toList();
+  } else if (type == double) {
+    return list.map((e) => e as double).toList();
+  } else if (type == String) {
+    return list.map((e) => e as String).toList();
+  } else if (type == bool) {
+    return list.map((e) => e as bool).toList();
+  }
+  return list;
+}
+
+bool _isBasicType(dynamic val) {
+  Type? type = val.runtimeType;
+  return type == int ||
+      type == double ||
+      type == String ||
+      type == bool ||
+      type == Null;
 }
