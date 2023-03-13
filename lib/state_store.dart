@@ -713,12 +713,3 @@ List _typeCastList(List<dynamic> list, Type? type) {
   }
   return list;
 }
-
-bool _isBasicType(dynamic val) {
-  Type? type = val.runtimeType;
-  return type == int ||
-      type == double ||
-      type == String ||
-      type == bool ||
-      type == Null;
-}
