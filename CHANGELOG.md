@@ -1,4 +1,4 @@
-## 0.4.1
+## 0.4.2
 
 - 'Folding' state view support to state_store_rc
 - Support for custom ToEncodable functions to handle custom non json serializable content

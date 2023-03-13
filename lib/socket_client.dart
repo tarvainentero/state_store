@@ -19,7 +19,6 @@ class SocketClient {
   void updateFullState(Map<String, dynamic> state) {
     var map = <String, dynamic>{};
     for (var i in state.keys) {
-      print("i: $i");
       var val = state[i]!.value;
       bool persisted = state[i]!.persist;
       if (persisted) {
