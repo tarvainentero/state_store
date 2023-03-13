@@ -12,7 +12,8 @@ Simple state management package for Flutter.
 
 ## Usage
 
-Check the example app for basic usage.
+Check the ´´´example´´´ app for basic usage.
+Check ´´´state_store_rc´´´ for remote debug view
 
 ## Additional information
 
