@@ -270,12 +270,12 @@ packages:
     source: hosted
     version: "1.11.0"
   state_store:
-    dependency: "direct dev"
+    dependency: "direct main"
     description:
       path: ".."
       relative: true
     source: path
-    version: "0.2.0"
+    version: "0.3.0"
   stream_channel:
     dependency: transitive
     description:

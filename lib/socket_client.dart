@@ -1,21 +1,35 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'state_store.dart';
 
+typedef ToEncodable = Object? Function(Object? object);
+
 class SocketClient {
   final StateStore stateStore;
-  SocketClient(this.stateStore);
+  final ToEncodable? toEncodable;
+  SocketClient(this.stateStore, {this.toEncodable});
 
   Socket? _socket;
 
   Future<void> connect() async {
     _socket ??= await Socket.connect('localhost', 4567);
-    _socket?.listen((event) {
-      print("GOT DATA IN DA ASS: $event");
-    });
   }
 
-  void updateFullState(String fullState) {
+  void updateFullState(Map<String, dynamic> state) {
+    var map = <String, dynamic>{};
+    for (var i in state.keys) {
+      print("i: $i");
+      var val = state[i]!.value;
+      bool persisted = state[i]!.persist;
+      if (persisted) {
+        map["$i [*]"] = val;
+      } else {
+        map[i] = val;
+      }
+    }
+    var fullState = jsonEncode(map, toEncodable: toEncodable);
+
     _send(fullState);
   }
 

@@ -1,10 +1,12 @@
-import 'dart:io';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:state_store/state_store.dart';
 
 import 'example_complex.dart';
+
+enum TestEnum { one, two, three }
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,9 +18,10 @@ Future<void> main() async {
   ///
   /// For more complex values also define Importer and Exporter.
   ///
-  StateStore.setUp<int>('counter', 0, true);
-  StateStore.setUp<String>('text', 'Tiger blood', true);
-  StateStore.setUp<Complex>('complex', Complex.demo(), true);
+  StateStore.setUp<int>('main.counter', 0, true);
+  StateStore.setUp<String>('main.text', 'Tiger blood', true);
+  StateStore.setUp<Complex>('other.complex', Complex.demo(), true);
+  StateStore.setUp<TestEnum>('other.other.enum', TestEnum.one, false);
 
   /// Step 2
   /// Use import to fetch all persisted values
@@ -30,7 +33,10 @@ Future<void> main() async {
   /// <key>com.apple.security.network.client</key>
   /// <true/>
   if (kDebugMode) {
-    await StateStore.connectRemoteDebugging();
+    await StateStore.connectRemoteDebugging(toEncodable: (object) {
+      if (object is Enum) return object.name;
+      return const JsonEncoder().convert(object);
+    });
   }
 
   runApp(const MyApp());
@@ -58,7 +64,7 @@ class MyHomePage extends StatelessWidget {
   void _incrementCounter() {
     /// Step 5: Use dispatch to update value. All listeners and builders
     /// will be notified/updated
-    StateStore.dispatch('counter', StateStore.get('counter') + 1);
+    StateStore.dispatch('main.counter', StateStore.get('main.counter') + 1);
   }
 
   @override
@@ -82,7 +88,7 @@ class MyHomePage extends StatelessWidget {
                 '$value',
                 style: Theme.of(context).textTheme.headlineMedium,
               ),
-              id: 'counter',
+              id: 'main.counter',
             ),
             const SizedBox(height: 20),
             const Text(
@@ -90,7 +96,7 @@ class MyHomePage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             StateStoreBuilder<String?>(
-              id: 'text',
+              id: 'main.text',
               builder: (context, value) => Text(
                 value ?? '',
                 style: Theme.of(context)
@@ -105,7 +111,7 @@ class MyHomePage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             StateStoreBuilder<Complex?>(
-              id: 'complex',
+              id: 'other.complex',
               builder: (context, value) => Column(
                 children: [
                   Text(

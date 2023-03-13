@@ -1,16 +1,9 @@
 # state_store_rc
 
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+An utility application that displays the contents of a [StateStore].
+Effectively you can run your app for example in a Simulator and have this
+app running as a desktop app. And then configure the phone app with
+´´´
+await StateStore.connectRemoteDebugging();
+´´´
+and then see the full contents of the [StateStore] in the desktop app in real time.

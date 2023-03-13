@@ -89,8 +89,8 @@ class StateStore {
   }
 
   /// Connect state store to remote debugging server
-  static Future<void> connectRemoteDebugging() async {
-    await _instance._connectRemoteDebugging();
+  static Future<void> connectRemoteDebugging({ToEncodable? toEncodable}) async {
+    await _instance._connectRemoteDebugging(toEncodable: toEncodable);
   }
 
   /// Push state change. This will replace the old value with 'event'
@@ -105,6 +105,14 @@ class StateStore {
   static void dispatchAddition<V>(String id, V value, {BuildContext? ctx}) {
     // print("[StateStore]:[dispatchAddition]: $id, $value");
     _instance._dispatchAddition(id, value, ctx: ctx);
+  }
+
+  /// Push state change. This will toggle the value of the given id.
+  /// and notify all listeners of the change.
+  /// NOTE: This only works for bool values and that have already been set at least once.
+  static void dispatchToggle<bool>(String id, {BuildContext? ctx}) {
+    // print("[StateStore]:[dispatch]: $id, $event");
+    _instance._dispatchToggle(id, ctx: ctx);
   }
 
   /// Trigger change. This will notify all listeners of the event.
@@ -293,20 +301,9 @@ class StateStore {
       stateElement = StateElement();
       _store[id] = stateElement;
     }
-    try {
-      stateElement.update(id, value, ctx);
-    } catch (e) {
-      print("### $e");
-    }
 
-    // Note: Persisted elements need to be set up
-    // separately
-    if (stateElement.persist) {
-      _persist(id, stateElement.export());
-    }
-
-    // Always fire post processing debug trigger
-    __fireDebugStateChange();
+    // Perform post dispatch
+    _performPostDispatch(id, value, stateElement, ctx: ctx);
   }
 
   // Dispatch but for array values. If such element (array) does not yet exist
@@ -320,8 +317,22 @@ class StateStore {
     }
     // Add the new value to the list
     stateElement._value.add(value);
+
+    // Perform post dispatch
+    _performPostDispatch(id, value, stateElement, ctx: ctx);
+  }
+
+  // Dispatch utility for toggling boolean values.
+  void _dispatchToggle(String id, {BuildContext? ctx}) {
+    var stateElement = _store[id];
+    stateElement!._value = !stateElement._value;
+    _performPostDispatch(id, stateElement.value, stateElement, ctx: ctx);
+  }
+
+  void _performPostDispatch(String id, dynamic value, StateElement stateElement,
+      {BuildContext? ctx}) {
     try {
-      stateElement.update(id, stateElement._value, ctx);
+      stateElement.update(id, value, ctx);
     } catch (e) {
       print("### $e");
     }
@@ -401,35 +412,24 @@ class StateStore {
   ///
   ////////////////////////////////////////////
 
-  String _export() {
-    var map = <String, dynamic>{};
-    for (var i in _store.keys) {
-      var val = _store[i]!._value;
-      bool persisted = _store[i]!.persist;
-      if (persisted) {
-        map[i + " [*]"] = val;
-      } else {
-        map[i] = val;
-      }
-    }
-    return jsonEncode(map);
-  }
-
   /// Connect this state store to remote debugging server
-  Future<void> _connectRemoteDebugging() async {
+  Future<void> _connectRemoteDebugging({ToEncodable? toEncodable}) async {
     try {
-      SocketClient client = SocketClient(this);
+      SocketClient client = SocketClient(this, toEncodable: toEncodable);
       await client.connect();
       _socketClient = client;
       print("[StateStore]: Connected to remote debugging server");
-    } catch (e) {}
+    } catch (e) {
+      print("[StateStore]: No debugging server available. Bypassing.");
+      print("e: $e");
+    }
   }
 
-  __fireDebugStateChange() {
+  void __fireDebugStateChange() {
     // This is always called when the internal state changes.
     // If we have a configured debug socket, then we will export the full state
     // to it.
-    _socketClient?.updateFullState(_export());
+    _socketClient?.updateFullState(_store);
   }
 }
 
@@ -590,6 +590,8 @@ class StateElement<V> with StateChangeNotifier {
     this.exporter = jsonEncode,
   });
 
+  V? get value => _value;
+
   void update(String id, V newValue, [BuildContext? ctx]) {
     _value = newValue;
     _ctx = ctx;
@@ -672,7 +674,7 @@ class _StateStoreBuilderBaseState<S> extends State<StateStoreBuilderBase<S?>> {
   }
 
   void _subscribe() {
-    listener = (_id, newValue, ctx) {
+    listener = (id, newValue, ctx) {
       if (widget.condition?.call(newValue) ?? true) {
         setState(() {
           _state = newValue;
