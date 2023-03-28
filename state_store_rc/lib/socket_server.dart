@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 const port = 4567;
+const separator = "|||";
 
 enum ConnectionState {
   settingUp,
@@ -66,13 +67,25 @@ class SocketServer {
 
   void _handleData(Socket socket, Uint8List data) {
     String message = String.fromCharCodes(data);
-    print("Got data: $message");
+    List<String> messages = message.split(separator);
+    if (messages.isNotEmpty) {
+      /// get last not empty message
+      var message = messages.lastWhere((element) => element.isNotEmpty,
+          orElse: () => "-");
+      if (message != "-") {
+        _handleMessage(message);
+      }
+    }
+  }
+
+  void _handleMessage(String message) {
+    // print("Update received: $message");
     try {
-      Map<String, dynamic> json = jsonDecode(message);
+      var json = jsonDecode(message);
       _onDispatch?.call(json);
     } catch (e) {
-      print("Invalid message format: bypassing");
-      return;
+      print(e);
+      print("Invalid message format: bypassing: Message: $message");
     }
   }
 }

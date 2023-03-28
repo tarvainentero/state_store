@@ -31,6 +31,16 @@ import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:state_store/socket_client.dart';
 
+///
+/// Migration to new version
+///
+/// Mapper function for migrating old values entries to new ones.
+/// Return value of this function will determine if the old entry will be removed or not.
+typedef MigrateValueMapper = bool Function(String id, dynamic value);
+
+//
+// Import / Export
+//
 typedef Importer = dynamic Function(String val);
 typedef Exporter = String Function(dynamic val);
 
@@ -72,11 +82,26 @@ class StateStore {
    *                              A P I
    ********************************************************************************************/
 
+  /// Utility that will dump all stored values to given function.
+  /// Depending on the function's return value the old entry will be removed or not.
+  ///
+  /// This can be used to migrate old persisted values to new IDs and to
+  /// cleanup old IDs that are no longer used.
+  ///
+  static void migrate(MigrateValueMapper mapper) {
+    _instance._migrate(mapper);
+  }
+
   /// Retrieve stored value with given id
   static V? get<V>(String id, [V? defaultValue]) {
     return _instance._value(id, defaultValue);
   }
 
+  /// This will set up a new state element with given id and default value.
+  /// It will also determine if the value should be persisted or not.
+  ///
+  /// NOTE: This will not trigger any listeners nor persist the value!
+  ///
   static void setUp<V>(
     String id,
     V defaultValue,
@@ -221,6 +246,20 @@ class StateStore {
   /********************************************************************************************
    *                            IMPLEMENTATION
    ********************************************************************************************/
+
+  /// Migration from old state store id/value pairs to new one
+  void _migrate(MigrateValueMapper mapper) {
+    // First copy the keys in case mapper function creates new news that would
+    // mess up iteration.
+    var keys = _store.keys.toList();
+    for (var i in keys) {
+      var value = _store[i]!._value;
+      var delete = mapper(i, value);
+      if (delete) {
+        _store.remove(i);
+      }
+    }
+  }
 
   /// Listener is added even though such value might not exist yet with
   /// given id.
@@ -415,7 +454,7 @@ class StateStore {
   /// Connect this state store to remote debugging server
   Future<void> _connectRemoteDebugging({ToEncodable? toEncodable}) async {
     try {
-      SocketClient client = SocketClient(this, toEncodable: toEncodable);
+      SocketClient client = SocketClient(toEncodable: toEncodable);
       await client.connect();
       _socketClient = client;
       print("[StateStore]: Connected to remote debugging server");

@@ -1,3 +1,7 @@
+## 0.5.0
+
+- Support for migration of old persisted values to new format
+
 ## 0.4.2
 
 - 'Folding' state view support to state_store_rc
