@@ -13,8 +13,21 @@ class CodeScanner {
   CodeScanner({required this.projectPath});
 
   /// Returns all references for a given state key.
+  /// Tries exact match first. If no results, searches for keys that
+  /// end with the given key segment (for folded tree view nodes).
   List<CodeReference> referencesForKey(String key) {
-    return _index[key] ?? [];
+    final exact = _index[key];
+    if (exact != null && exact.isNotEmpty) return exact;
+
+    // Partial match: key might be a suffix segment from the folded view
+    // e.g. "counter" should match "main.counter"
+    final results = <CodeReference>[];
+    for (final entry in _index.entries) {
+      if (entry.key.endsWith('.$key') || entry.key.startsWith('$key.')) {
+        results.addAll(entry.value);
+      }
+    }
+    return results;
   }
 
   /// Returns all discovered keys.
