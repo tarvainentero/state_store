@@ -91,19 +91,26 @@ class CodeScanner {
     final usageType = _detectUsageType(line);
     if (usageType == null) return results;
 
+    // Count occurrences of each key on this line
+    final keyCounts = <String, int>{};
     for (final match in matches) {
       final key = match.group(1)!;
-      // Skip obvious non-keys (imports, package refs, etc.)
       if (key.contains('/') || key.contains('.dart') || key.contains('package:')) {
         continue;
       }
+      keyCounts[key] = (keyCounts[key] ?? 0) + 1;
+    }
+
+    // Emit one reference per key per line, with occurrence count
+    for (final entry in keyCounts.entries) {
       results.add(MapEntry(
-        key,
+        entry.key,
         CodeReference(
           filePath: filePath,
           lineNumber: lineNumber,
           lineContent: line.trim(),
           usageType: usageType,
+          occurrences: entry.value,
         ),
       ));
     }

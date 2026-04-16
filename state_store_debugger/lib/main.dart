@@ -14,6 +14,7 @@ Future<void> main() async {
 
   StateStore.setUp<bool>('view_mode_folded', false, persist: true);
   StateStore.setUp<String>('project_path', '', persist: true);
+  StateStore.setUp<double>('panel_width', 360.0, persist: true);
 
   await StateStore.import();
 
@@ -44,10 +45,14 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   CodeScanner? _scanner;
+  final SocketServer _socketServer = SocketServer();
+  Map<String, dynamic> _state = <String, dynamic>{};
+  Map<String, dynamic> _foldedState = <String, dynamic>{};
 
   @override
   void initState() {
     super.initState();
+    _socketServer.start(_onDispatch);
     final savedPath = StateStore.get<String>('project_path') ?? '';
     if (savedPath.isNotEmpty && Directory(savedPath).existsSync()) {
       _initScanner(savedPath);
@@ -57,6 +62,7 @@ class _AppShellState extends State<AppShell> {
   @override
   void dispose() {
     _scanner?.dispose();
+    _socketServer.dispose();
     super.dispose();
   }
 
@@ -75,6 +81,13 @@ class _AppShellState extends State<AppShell> {
     setState(() => _scanner = null);
   }
 
+  void _onDispatch(Map<String, dynamic> newState) {
+    setState(() {
+      _state = newState;
+      _foldedState = _fold(newState);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_scanner == null) {
@@ -86,18 +99,50 @@ class _AppShellState extends State<AppShell> {
     }
     return DebuggerPage(
       scanner: _scanner!,
+      state: _state,
+      foldedState: _foldedState,
       onChangeProject: _changeProject,
     );
+  }
+
+  static Map<String, dynamic> _fold(Map<String, dynamic> state) {
+    Map<String, dynamic> result = <String, dynamic>{};
+    for (var key in state.keys) {
+      var value = state[key];
+      _ensureAndInsertTarget(result, key, value);
+    }
+    return result;
+  }
+
+  static void _ensureAndInsertTarget(
+      Map<String, dynamic> target, String key, dynamic value) {
+    var parts = key.split('.');
+    var current = target;
+    for (var i = 0; i < parts.length; i++) {
+      var part = parts[i];
+      if (i == parts.length - 1) {
+        current[part] = value;
+      } else {
+        if (current[part] == null) {
+          current[part] = <String, dynamic>{};
+        }
+        current = current[part];
+      }
+    }
   }
 }
 
 class DebuggerPage extends StatefulWidget {
   final CodeScanner scanner;
+  final Map<String, dynamic> state;
+  final Map<String, dynamic> foldedState;
   final VoidCallback onChangeProject;
 
   const DebuggerPage({
     super.key,
     required this.scanner,
+    required this.state,
+    required this.foldedState,
     required this.onChangeProject,
   });
 
@@ -106,21 +151,25 @@ class DebuggerPage extends StatefulWidget {
 }
 
 class _DebuggerPageState extends State<DebuggerPage> {
-  final SocketServer socketServer = SocketServer();
+  String? _selectedKey;
+  List<CodeReference> _selectedRefs = [];
 
-  Map<String, dynamic> state = <String, dynamic>{};
-  Map<String, dynamic> foldedState = <String, dynamic>{};
+  void _onSelected(String? key, dynamic value) {
+    if (key == null) return;
 
-  @override
-  void initState() {
-    super.initState();
-    socketServer.start(_onDispatch);
-  }
+    // Strip the " [*]" persistence suffix that the socket client adds
+    final cleanKey = key.replaceAll(RegExp(r'\s*\[\*\]$'), '');
 
-  @override
-  void dispose() {
-    socketServer.dispose();
-    super.dispose();
+    setState(() {
+      if (_selectedKey == cleanKey) {
+        // Toggle off on re-select
+        _selectedKey = null;
+        _selectedRefs = [];
+      } else {
+        _selectedKey = cleanKey;
+        _selectedRefs = widget.scanner.referencesForKey(cleanKey);
+      }
+    });
   }
 
   @override
@@ -145,93 +194,179 @@ class _DebuggerPageState extends State<DebuggerPage> {
           ),
         ],
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(8.0),
-        child: SingleChildScrollView(
-          child: StateStoreBuilder<bool>(
-            id: 'view_mode_folded',
-            builder: (context, folded) => folded
-                ? JsonViewer(foldedState, onSelected: _onSelected)
-                : JsonViewer(state, onSelected: _onSelected),
+      body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: SingleChildScrollView(
+                child: StateStoreBuilder<bool>(
+                  id: 'view_mode_folded',
+                  builder: (context, folded) => folded
+                      ? JsonViewer(widget.foldedState, onSelected: (k, v) => _onSelected(k, v))
+                      : JsonViewer(widget.state, onSelected: (k, v) => _onSelected(k, v)),
+                ),
+              ),
+            ),
           ),
-        ),
+          if (_selectedKey != null)
+            StateStoreBuilder<double>(
+              id: 'panel_width',
+              builder: (context, _) => _ResizableReferencesPanel(
+                selectedKey: _selectedKey!,
+                refs: _selectedRefs,
+                projectPath: widget.scanner.projectPath,
+                onClose: () => setState(() {
+                  _selectedKey = null;
+                  _selectedRefs = [];
+                }),
+              ),
+            ),
+        ],
       ),
     );
   }
+}
 
-  void _onDispatch(Map<String, dynamic> newState) {
-    setState(() {
-      state = newState;
-      foldedState = _fold(newState);
-    });
+class _ResizableReferencesPanel extends StatelessWidget {
+  final String selectedKey;
+  final List<CodeReference> refs;
+  final String projectPath;
+  final VoidCallback onClose;
+
+  static const double _minWidth = 200.0;
+  static const double _maxWidth = 800.0;
+
+  const _ResizableReferencesPanel({
+    required this.selectedKey,
+    required this.refs,
+    required this.projectPath,
+    required this.onClose,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final width = (StateStore.get<double>('panel_width') ?? 360.0)
+        .clamp(_minWidth, _maxWidth);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        MouseRegion(
+          cursor: SystemMouseCursors.resizeColumn,
+          child: GestureDetector(
+            onHorizontalDragUpdate: (details) {
+              final newWidth = (width - details.delta.dx)
+                  .clamp(_minWidth, _maxWidth);
+              StateStore.dispatch<double>('panel_width', newWidth);
+            },
+            child: Container(
+              width: 6,
+              color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+              child: Center(
+                child: Container(
+                  width: 2,
+                  height: 32,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).dividerColor,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(
+          width: width,
+          child: _ReferencesPanelContent(
+            selectedKey: selectedKey,
+            refs: refs,
+            projectPath: projectPath,
+            onClose: onClose,
+          ),
+        ),
+      ],
+    );
   }
+}
 
-  void _onSelected(String? key, dynamic value) {
-    if (key == null) return;
+class _ReferencesPanelContent extends StatelessWidget {
+  final String selectedKey;
+  final List<CodeReference> refs;
+  final String projectPath;
+  final VoidCallback onClose;
 
-    // Strip the " [*]" persistence suffix that the socket client adds
-    final cleanKey = key.replaceAll(RegExp(r'\s*\[\*\]$'), '');
+  const _ReferencesPanelContent({
+    required this.selectedKey,
+    required this.refs,
+    required this.projectPath,
+    required this.onClose,
+  });
 
-    final refs = widget.scanner.referencesForKey(cleanKey);
-    _showReferencesSheet(context, cleanKey, refs);
-  }
-
-  void _showReferencesSheet(
-      BuildContext context, String key, List<CodeReference> refs) {
-    final projectPath = widget.scanner.projectPath;
-
-    showModalBottomSheet(
-      context: context,
-      builder: (context) {
-        if (refs.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(color: Theme.of(context).dividerColor),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+            child: Row(
               children: [
-                Text(key,
-                    style: Theme.of(context).textTheme.titleMedium),
-                const SizedBox(height: 12),
-                const Text('No references found in source'),
+                Expanded(
+                  child: Text(
+                    '$selectedKey \u2014 ${refs.length} reference${refs.length == 1 ? '' : 's'}',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18),
+                  onPressed: onClose,
+                ),
               ],
             ),
-          );
-        }
-
-        return Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('$key \u2014 ${refs.length} reference${refs.length == 1 ? '' : 's'}',
-                  style: Theme.of(context).textTheme.titleMedium),
-              const SizedBox(height: 12),
-              ...refs.map((ref) {
-                // Show path relative to project root
-                final relativePath = ref.filePath.startsWith(projectPath)
-                    ? ref.filePath.substring(projectPath.length + 1)
-                    : ref.filePath;
-                return ListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  leading: Chip(
-                    label: Text(ref.usageType,
-                        style: const TextStyle(fontSize: 11)),
-                    visualDensity: VisualDensity.compact,
-                  ),
-                  title: Text('$relativePath:${ref.lineNumber}'),
-                  subtitle: Text(ref.lineContent,
-                      maxLines: 1, overflow: TextOverflow.ellipsis),
-                  trailing: const Icon(Icons.open_in_new, size: 16),
-                  onTap: () => _openInVsCode(ref, context),
-                );
-              }),
-            ],
           ),
-        );
-      },
+          const Divider(),
+          if (refs.isEmpty)
+            const Padding(
+              padding: EdgeInsets.all(16.0),
+              child: Text('No references found in source'),
+            )
+          else
+            Expanded(
+              child: ListView.builder(
+                itemCount: refs.length,
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                itemBuilder: (context, index) {
+                  final ref = refs[index];
+                  final relativePath = ref.filePath.startsWith(projectPath)
+                      ? ref.filePath.substring(projectPath.length + 1)
+                      : ref.filePath;
+                  return ListTile(
+                    dense: true,
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+                    leading: Chip(
+                      label: Text(ref.usageType,
+                          style: const TextStyle(fontSize: 11)),
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    title: Text('$relativePath:${ref.lineNumber}'
+                        '${ref.occurrences > 1 ? ' (${ref.occurrences}x on this line)' : ''}'),
+                    subtitle: Text(ref.lineContent,
+                        maxLines: 1, overflow: TextOverflow.ellipsis),
+                    trailing: const Icon(Icons.open_in_new, size: 16),
+                    onTap: () => _openInVsCode(ref, context),
+                  );
+                },
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -253,32 +388,6 @@ class _DebuggerPageState extends State<DebuggerPage> {
           SnackBar(content: Text('VS Code not found. '
               'Navigate to ${ref.filePath}:${ref.lineNumber}')),
         );
-      }
-    }
-  }
-
-  Map<String, dynamic> _fold(Map<String, dynamic> state) {
-    Map<String, dynamic> result = <String, dynamic>{};
-    for (var key in state.keys) {
-      var value = state[key];
-      _ensureAndInsertTarget(result, key, value);
-    }
-    return result;
-  }
-
-  void _ensureAndInsertTarget(
-      Map<String, dynamic> target, String key, dynamic value) {
-    var parts = key.split('.');
-    var current = target;
-    for (var i = 0; i < parts.length; i++) {
-      var part = parts[i];
-      if (i == parts.length - 1) {
-        current[part] = value;
-      } else {
-        if (current[part] == null) {
-          current[part] = <String, dynamic>{};
-        }
-        current = current[part];
       }
     }
   }
