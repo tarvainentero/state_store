@@ -17,7 +17,7 @@ Add `state_store` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  state_store: ^0.6.0
+  state_store: ^0.7.0
 ```
 
 ## Usage
