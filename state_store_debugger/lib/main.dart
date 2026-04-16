@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:state_store/state_store.dart';
 import 'package:state_store_debugger/json_viewer.dart';
 
+import 'code_map_view.dart';
 import 'code_reference.dart';
 import 'code_scanner.dart';
 import 'setup_screen.dart';
@@ -15,6 +16,7 @@ Future<void> main() async {
   StateStore.setUp<bool>('view_mode_folded', false, persist: true);
   StateStore.setUp<String>('project_path', '', persist: true);
   StateStore.setUp<double>('panel_width', 360.0, persist: true);
+  StateStore.setUp<int>('refs_view_tab', 0, persist: true);
 
   await StateStore.import();
 
@@ -331,6 +333,29 @@ class _ReferencesPanelContent extends StatelessWidget {
               ],
             ),
           ),
+          StateStoreBuilder<int>(
+            id: 'refs_view_tab',
+            builder: (context, tab) => Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(
+                children: [
+                  _TabButton(
+                    label: 'List',
+                    icon: Icons.list,
+                    selected: tab == 0,
+                    onTap: () => StateStore.dispatch('refs_view_tab', 0),
+                  ),
+                  const SizedBox(width: 4),
+                  _TabButton(
+                    label: 'Map',
+                    icon: Icons.map_outlined,
+                    selected: tab == 1,
+                    onTap: () => StateStore.dispatch('refs_view_tab', 1),
+                  ),
+                ],
+              ),
+            ),
+          ),
           const Divider(),
           if (refs.isEmpty)
             const Padding(
@@ -339,34 +364,131 @@ class _ReferencesPanelContent extends StatelessWidget {
             )
           else
             Expanded(
-              child: ListView.builder(
-                itemCount: refs.length,
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                itemBuilder: (context, index) {
-                  final ref = refs[index];
-                  final relativePath = ref.filePath.startsWith(projectPath)
-                      ? ref.filePath.substring(projectPath.length + 1)
-                      : ref.filePath;
-                  return ListTile(
-                    dense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 8),
-                    leading: Chip(
-                      label: Text(ref.usageType,
-                          style: const TextStyle(fontSize: 11)),
-                      visualDensity: VisualDensity.compact,
-                    ),
-                    title: Text('$relativePath:${ref.lineNumber}'
-                        '${ref.occurrences > 1 ? ' (${ref.occurrences}x on this line)' : ''}'),
-                    subtitle: Text(ref.lineContent,
-                        maxLines: 1, overflow: TextOverflow.ellipsis),
-                    trailing: const Icon(Icons.open_in_new, size: 16),
-                    onTap: () => _openInVsCode(ref, context),
-                  );
-                },
+              child: StateStoreBuilder<int>(
+                id: 'refs_view_tab',
+                builder: (context, tab) => tab == 1
+                    ? CodeMapView(
+                        projectPath: projectPath,
+                        refs: refs,
+                        onRefTap: (ref) => _openInVsCode(ref, context),
+                      )
+                    : _RefListView(
+                        refs: refs,
+                        projectPath: projectPath,
+                      ),
               ),
             ),
         ],
       ),
+    );
+  }
+
+  void _openInVsCode(CodeReference ref, BuildContext context) async {
+    try {
+      final result = await Process.run(
+          'code', ['--goto', '${ref.filePath}:${ref.lineNumber}']);
+      if (result.exitCode != 0) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Could not open VS Code. '
+                'Navigate to ${ref.filePath}:${ref.lineNumber}')),
+          );
+        }
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('VS Code not found. '
+              'Navigate to ${ref.filePath}:${ref.lineNumber}')),
+        );
+      }
+    }
+  }
+}
+
+class _TabButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _TabButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: selected
+          ? Theme.of(context).colorScheme.primaryContainer
+          : Colors.transparent,
+      borderRadius: BorderRadius.circular(6),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(6),
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(icon, size: 14,
+                  color: selected
+                      ? Theme.of(context).colorScheme.onPrimaryContainer
+                      : Colors.grey),
+              const SizedBox(width: 4),
+              Text(label,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: selected
+                        ? Theme.of(context).colorScheme.onPrimaryContainer
+                        : Colors.grey,
+                  )),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RefListView extends StatelessWidget {
+  final List<CodeReference> refs;
+  final String projectPath;
+
+  const _RefListView({
+    required this.refs,
+    required this.projectPath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      itemCount: refs.length,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemBuilder: (context, index) {
+        final ref = refs[index];
+        final relativePath = ref.filePath.startsWith(projectPath)
+            ? ref.filePath.substring(projectPath.length + 1)
+            : ref.filePath;
+        return ListTile(
+          dense: true,
+          contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+          leading: Chip(
+            label: Text(ref.usageType,
+                style: const TextStyle(fontSize: 11)),
+            visualDensity: VisualDensity.compact,
+          ),
+          title: Text('$relativePath:${ref.lineNumber}'
+              '${ref.occurrences > 1 ? ' (${ref.occurrences}x on this line)' : ''}'),
+          subtitle: Text(ref.lineContent,
+              maxLines: 1, overflow: TextOverflow.ellipsis),
+          trailing: const Icon(Icons.open_in_new, size: 16),
+          onTap: () => _openInVsCode(ref, context),
+        );
+      },
     );
   }
 
