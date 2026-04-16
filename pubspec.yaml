@@ -1,6 +1,6 @@
 name: state_store
 description: A simple state management package for Flutter
-version: 0.6.0
+version: 0.7.0
 homepage: https://github.com/tarvainentero/state_store
 
 environment:

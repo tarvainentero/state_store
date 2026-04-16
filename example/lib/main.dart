@@ -33,10 +33,12 @@ Future<void> main() async {
   /// <key>com.apple.security.network.client</key>
   /// <true/>
   if (kDebugMode) {
-    await StateStore.connectRemoteDebugging(toEncodable: (object) {
-      if (object is Enum) return object.name;
-      return const JsonEncoder().convert(object);
-    });
+    await StateStore.connectRemoteDebugging(
+      toEncodable: (object) {
+        if (object is Enum) return object.name;
+        return const JsonEncoder().convert(object);
+      },
+    );
   }
 
   runApp(const MyApp());
@@ -78,9 +80,7 @@ class MyHomePage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
+            const Text('You have pushed the button this many times:'),
 
             /// Step 3: Use state_store builder to handle value changes in the UI
             StateStoreBuilder(
@@ -92,24 +92,19 @@ class MyHomePage extends StatelessWidget {
               id: 'main.counter',
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Random text',
-            ),
+            const Text('Random text'),
             const SizedBox(height: 10),
             StateStoreBuilder<String?>(
               id: 'main.text',
               builder: (context, value) => Text(
                 value ?? '',
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge!
-                    .apply(color: Colors.amber),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleLarge!.apply(color: Colors.amber),
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Multi-builder (counter + text)',
-            ),
+            const Text('Multi-builder (counter + text)'),
             const SizedBox(height: 10),
             StateStoreMultiBuilder(
               ids: const ['main.counter', 'main.text'],
@@ -118,17 +113,14 @@ class MyHomePage extends StatelessWidget {
                 final text = states['main.text'] as String;
                 return Text(
                   '"$text" updated $counter times',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium!
-                      .apply(color: Colors.deepPurple),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleMedium!.apply(color: Colors.deepPurple),
                 );
               },
             ),
             const SizedBox(height: 20),
-            const Text(
-              'Complex',
-            ),
+            const Text('Complex'),
             const SizedBox(height: 10),
             StateStoreBuilder<Complex?>(
               id: 'other.complex',
@@ -136,31 +128,27 @@ class MyHomePage extends StatelessWidget {
                 children: [
                   Text(
                     value?.id ?? '-',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge!
-                        .apply(color: Colors.amber),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleLarge!.apply(color: Colors.amber),
                   ),
                   Text(
                     value?.name ?? '-',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge!
-                        .apply(color: Colors.amber),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleLarge!.apply(color: Colors.amber),
                   ),
                   Text(
                     value?.description ?? '-',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge!
-                        .apply(color: Colors.amber),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleLarge!.apply(color: Colors.amber),
                   ),
                   Text(
                     value?.numbers.toString() ?? '-',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge!
-                        .apply(color: Colors.amber),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.titleLarge!.apply(color: Colors.amber),
                   ),
                 ],
               ),
