@@ -1,5 +1,3 @@
-library flutter_json_widget;
-
 import 'package:flutter/material.dart';
 
 typedef OnSelected = void Function(String? key, dynamic value);
@@ -7,7 +5,7 @@ typedef OnSelected = void Function(String? key, dynamic value);
 class JsonViewer extends StatefulWidget {
   final dynamic jsonObj;
   final OnSelected? onSelected;
-  const JsonViewer(this.jsonObj, {key, this.onSelected}) : super(key: key);
+  const JsonViewer(this.jsonObj, {super.key, this.onSelected});
   @override
   State createState() => _JsonViewerState();
 }
@@ -43,8 +41,7 @@ class JsonObjectViewer extends StatefulWidget {
   final bool notRoot;
 
   const JsonObjectViewer(this.jsonObj,
-      {key, this.notRoot = false, this.onSelected})
-      : super(key: key);
+      {super.key, this.notRoot = false, this.onSelected});
 
   @override
   JsonObjectViewerState createState() => JsonObjectViewerState();
@@ -254,10 +251,10 @@ class JsonArrayViewer extends StatefulWidget {
 
   const JsonArrayViewer(
     this.jsonArray, {
-    Key? key,
+    super.key,
     this.notRoot = false,
     this.onSelected,
-  }) : super(key: key);
+  });
 
   @override
   State createState() => _JsonArrayViewerState();
