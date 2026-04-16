@@ -18,10 +18,10 @@ Future<void> main() async {
   ///
   /// For more complex values also define Importer and Exporter.
   ///
-  StateStore.setUp<int>('main.counter', 0, true);
-  StateStore.setUp<String>('main.text', 'Tiger blood', true);
-  StateStore.setUp<Complex>('other.complex', Complex.demo(), true);
-  StateStore.setUp<TestEnum>('other.other.enum', TestEnum.one, false);
+  StateStore.setUp<int>('main.counter', 0, persist: true);
+  StateStore.setUp<String>('main.text', 'Tiger blood', persist: true);
+  StateStore.setUp<Complex>('other.complex', Complex.demo(), persist: true);
+  StateStore.setUp<TestEnum>('other.other.enum', TestEnum.one);
 
   /// Step 2
   /// Use import to fetch all persisted values

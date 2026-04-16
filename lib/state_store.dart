@@ -104,8 +104,8 @@ class StateStore {
   ///
   static void setUp<V>(
     String id,
-    V defaultValue,
-    bool persist, {
+    V defaultValue, {
+    bool persist = false,
     Importer importer = defaultImporter,
     Exporter exporter = jsonEncode,
   }) {
