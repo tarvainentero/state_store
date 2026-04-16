@@ -13,7 +13,7 @@ class SocketClient {
   Timer? _timer;
 
   Future<void> connect() async {
-    _socket ??= await Socket.connect('localhost', 4567);
+    _socket ??= await Socket.connect('localhost', 4566);
 
     // Note: State is updated only by timed interval.
     // This is to prevent sending too many updates.

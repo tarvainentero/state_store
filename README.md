@@ -9,7 +9,7 @@ A lightweight state management package for Flutter. No boilerplate, no code gene
 - **Reactive builders** — `StateStoreBuilder` and `StateStoreMultiBuilder` widgets that rebuild on state changes
 - **Listeners** — subscribe to state changes and fire-and-forget trigger events
 - **Data migration** — migrate old persisted keys when your state schema changes
-- **Remote debugging** — inspect live app state with the companion `state_store_rc` desktop app
+- **Remote debugging** — inspect live app state with the companion `state_store_debugger` desktop app
 
 ## Getting started
 
@@ -97,7 +97,7 @@ StateStore.setUp<MyClass>(
 
 ### 7. Remote debugging
 
-Connect to the companion `state_store_rc` app to inspect state in real time:
+Connect to the companion `state_store_debugger` app to inspect state in real time:
 
 ```dart
 if (kDebugMode) {
@@ -105,7 +105,7 @@ if (kDebugMode) {
 }
 ```
 
-See the `state_store_rc` directory for the remote debugger app.
+See the `state_store_debugger` directory for the remote debugger app.
 
 ## Example
 

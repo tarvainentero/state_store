@@ -1,6 +1,6 @@
 {
-    "name": "state_store_rc",
-    "short_name": "state_store_rc",
+    "name": "state_store_debugger",
+    "short_name": "state_store_debugger",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

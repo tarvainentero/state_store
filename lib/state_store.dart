@@ -743,8 +743,7 @@ class StateStoreMultiBuilder extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<StateStoreMultiBuilder> createState() =>
-      _StateStoreMultiBuilderState();
+  State<StateStoreMultiBuilder> createState() => _StateStoreMultiBuilderState();
 }
 
 class _StateStoreMultiBuilderState extends State<StateStoreMultiBuilder> {
@@ -772,7 +771,8 @@ class _StateStoreMultiBuilderState extends State<StateStoreMultiBuilder> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.builder(context, _collectStates());
+  Widget build(BuildContext context) =>
+      widget.builder(context, _collectStates());
 
   @override
   void dispose() {
