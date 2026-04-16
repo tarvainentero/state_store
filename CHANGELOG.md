@@ -1,3 +1,8 @@
+## 0.6.0
+
+- Add StateStoreMultiBuilder for listening to multiple state IDs
+- Recreate example app with latest Flutter
+
 ## 0.5.0
 
 - Support for migration of old persisted values to new format
