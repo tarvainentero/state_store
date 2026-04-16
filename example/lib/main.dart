@@ -107,6 +107,25 @@ class MyHomePage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
             const Text(
+              'Multi-builder (counter + text)',
+            ),
+            const SizedBox(height: 10),
+            StateStoreMultiBuilder(
+              ids: const ['main.counter', 'main.text'],
+              builder: (context, states) {
+                final counter = states['main.counter'] as int;
+                final text = states['main.text'] as String;
+                return Text(
+                  '"$text" updated $counter times',
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium!
+                      .apply(color: Colors.deepPurple),
+                );
+              },
+            ),
+            const SizedBox(height: 20),
+            const Text(
               'Complex',
             ),
             const SizedBox(height: 10),

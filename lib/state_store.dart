@@ -652,6 +652,9 @@ class StateElement<V> with StateChangeNotifier {
 typedef StateStoreWidgetBuilder<S> = Widget Function(
     BuildContext context, S state);
 
+typedef StateStoreMultiWidgetBuilder = Widget Function(
+    BuildContext context, Map<String, dynamic> states);
+
 typedef StateStoreBuilderCondition<S> = bool Function(S current);
 
 class StateStoreBuilder<S> extends StateStoreBuilderBase<S> {
@@ -726,6 +729,83 @@ class _StateStoreBuilderBaseState<S> extends State<StateStoreBuilderBase<S?>> {
   void _unsubscribe() {
     StateStore.removeListener(_id!, listener!);
     listener = null;
+  }
+}
+
+class StateStoreMultiBuilder extends StatefulWidget {
+  final List<String> ids;
+  final StateStoreMultiWidgetBuilder builder;
+
+  const StateStoreMultiBuilder({
+    Key? key,
+    required this.ids,
+    required this.builder,
+  }) : super(key: key);
+
+  @override
+  State<StateStoreMultiBuilder> createState() =>
+      _StateStoreMultiBuilderState();
+}
+
+class _StateStoreMultiBuilderState extends State<StateStoreMultiBuilder> {
+  final Map<String, StateChangeCallback> _listeners = {};
+
+  Map<String, dynamic> _collectStates() {
+    return {for (final id in widget.ids) id: StateStore.get(id)};
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _subscribe();
+  }
+
+  @override
+  void didUpdateWidget(StateStoreMultiBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final oldIds = oldWidget.ids.toSet();
+    final newIds = widget.ids.toSet();
+    if (oldIds != newIds) {
+      _unsubscribeIds(oldIds.difference(newIds));
+      _subscribeIds(newIds.difference(oldIds));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _collectStates());
+
+  @override
+  void dispose() {
+    _unsubscribe();
+    super.dispose();
+  }
+
+  void _subscribe() {
+    _subscribeIds(widget.ids.toSet());
+  }
+
+  void _onStateChanged(String id, dynamic newValue, BuildContext? ctx) {
+    setState(() {});
+  }
+
+  void _subscribeIds(Set<String> ids) {
+    for (final id in ids) {
+      _listeners[id] = _onStateChanged;
+      StateStore.addListener(id, _onStateChanged);
+    }
+  }
+
+  void _unsubscribe() {
+    _unsubscribeIds(_listeners.keys.toSet());
+  }
+
+  void _unsubscribeIds(Set<String> ids) {
+    for (final id in ids) {
+      final listener = _listeners.remove(id);
+      if (listener != null) {
+        StateStore.removeListener(id, listener);
+      }
+    }
   }
 }
 
