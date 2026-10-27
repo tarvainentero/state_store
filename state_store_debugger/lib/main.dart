@@ -117,7 +117,10 @@ class _AppShellState extends State<AppShell> {
   }
 
   static void _ensureAndInsertTarget(
-      Map<String, dynamic> target, String key, dynamic value) {
+    Map<String, dynamic> target,
+    String key,
+    dynamic value,
+  ) {
     var parts = key.split('.');
     var current = target;
     for (var i = 0; i < parts.length; i++) {
@@ -183,7 +186,7 @@ class _DebuggerPageState extends State<DebuggerPage> {
           builder: (ctx, state) => IconButton(
             icon: Icon(state ? Icons.code : Icons.format_list_bulleted),
             onPressed: () {
-              StateStore.dispatchToggle<bool>('view_mode_folded');
+              StateStore.dispatchToggle('view_mode_folded');
             },
           ),
         ),
@@ -206,8 +209,14 @@ class _DebuggerPageState extends State<DebuggerPage> {
                 child: StateStoreBuilder<bool>(
                   id: 'view_mode_folded',
                   builder: (context, folded) => folded
-                      ? JsonViewer(widget.foldedState, onSelected: (k, v) => _onSelected(k, v))
-                      : JsonViewer(widget.state, onSelected: (k, v) => _onSelected(k, v)),
+                      ? JsonViewer(
+                          widget.foldedState,
+                          onSelected: (k, v) => _onSelected(k, v),
+                        )
+                      : JsonViewer(
+                          widget.state,
+                          onSelected: (k, v) => _onSelected(k, v),
+                        ),
                 ),
               ),
             ),
@@ -249,8 +258,10 @@ class _ResizableReferencesPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final width = (StateStore.get<double>('panel_width') ?? 360.0)
-        .clamp(_minWidth, _maxWidth);
+    final width = (StateStore.get<double>('panel_width') ?? 360.0).clamp(
+      _minWidth,
+      _maxWidth,
+    );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -258,8 +269,10 @@ class _ResizableReferencesPanel extends StatelessWidget {
           cursor: SystemMouseCursors.resizeColumn,
           child: GestureDetector(
             onHorizontalDragUpdate: (details) {
-              final newWidth = (width - details.delta.dx)
-                  .clamp(_minWidth, _maxWidth);
+              final newWidth = (width - details.delta.dx).clamp(
+                _minWidth,
+                _maxWidth,
+              );
               StateStore.dispatch<double>('panel_width', newWidth);
             },
             child: Container(
@@ -309,9 +322,7 @@ class _ReferencesPanelContent extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        border: Border(
-          left: BorderSide(color: Theme.of(context).dividerColor),
-        ),
+        border: Border(left: BorderSide(color: Theme.of(context).dividerColor)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,10 +383,7 @@ class _ReferencesPanelContent extends StatelessWidget {
                         refs: refs,
                         onRefTap: (ref) => _openInVsCode(ref, context),
                       )
-                    : _RefListView(
-                        refs: refs,
-                        projectPath: projectPath,
-                      ),
+                    : _RefListView(refs: refs, projectPath: projectPath),
               ),
             ),
         ],
@@ -385,21 +393,31 @@ class _ReferencesPanelContent extends StatelessWidget {
 
   void _openInVsCode(CodeReference ref, BuildContext context) async {
     try {
-      final result = await Process.run(
-          'code', ['--goto', '${ref.filePath}:${ref.lineNumber}']);
+      final result = await Process.run('code', [
+        '--goto',
+        '${ref.filePath}:${ref.lineNumber}',
+      ]);
       if (result.exitCode != 0) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not open VS Code. '
-                'Navigate to ${ref.filePath}:${ref.lineNumber}')),
+            SnackBar(
+              content: Text(
+                'Could not open VS Code. '
+                'Navigate to ${ref.filePath}:${ref.lineNumber}',
+              ),
+            ),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('VS Code not found. '
-              'Navigate to ${ref.filePath}:${ref.lineNumber}')),
+          SnackBar(
+            content: Text(
+              'VS Code not found. '
+              'Navigate to ${ref.filePath}:${ref.lineNumber}',
+            ),
+          ),
         );
       }
     }
@@ -434,18 +452,23 @@ class _TabButton extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, size: 14,
+              Icon(
+                icon,
+                size: 14,
+                color: selected
+                    ? Theme.of(context).colorScheme.onPrimaryContainer
+                    : Colors.grey,
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
                   color: selected
                       ? Theme.of(context).colorScheme.onPrimaryContainer
-                      : Colors.grey),
-              const SizedBox(width: 4),
-              Text(label,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: selected
-                        ? Theme.of(context).colorScheme.onPrimaryContainer
-                        : Colors.grey,
-                  )),
+                      : Colors.grey,
+                ),
+              ),
             ],
           ),
         ),
@@ -458,10 +481,7 @@ class _RefListView extends StatelessWidget {
   final List<CodeReference> refs;
   final String projectPath;
 
-  const _RefListView({
-    required this.refs,
-    required this.projectPath,
-  });
+  const _RefListView({required this.refs, required this.projectPath});
 
   @override
   Widget build(BuildContext context) {
@@ -477,14 +497,18 @@ class _RefListView extends StatelessWidget {
           dense: true,
           contentPadding: const EdgeInsets.symmetric(horizontal: 8),
           leading: Chip(
-            label: Text(ref.usageType,
-                style: const TextStyle(fontSize: 11)),
+            label: Text(ref.usageType, style: const TextStyle(fontSize: 11)),
             visualDensity: VisualDensity.compact,
           ),
-          title: Text('$relativePath:${ref.lineNumber}'
-              '${ref.occurrences > 1 ? ' (${ref.occurrences}x on this line)' : ''}'),
-          subtitle: Text(ref.lineContent,
-              maxLines: 1, overflow: TextOverflow.ellipsis),
+          title: Text(
+            '$relativePath:${ref.lineNumber}'
+            '${ref.occurrences > 1 ? ' (${ref.occurrences}x on this line)' : ''}',
+          ),
+          subtitle: Text(
+            ref.lineContent,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
           trailing: const Icon(Icons.open_in_new, size: 16),
           onTap: () => _openInVsCode(ref, context),
         );
@@ -494,21 +518,31 @@ class _RefListView extends StatelessWidget {
 
   void _openInVsCode(CodeReference ref, BuildContext context) async {
     try {
-      final result = await Process.run(
-          'code', ['--goto', '${ref.filePath}:${ref.lineNumber}']);
+      final result = await Process.run('code', [
+        '--goto',
+        '${ref.filePath}:${ref.lineNumber}',
+      ]);
       if (result.exitCode != 0) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Could not open VS Code. '
-                'Navigate to ${ref.filePath}:${ref.lineNumber}')),
+            SnackBar(
+              content: Text(
+                'Could not open VS Code. '
+                'Navigate to ${ref.filePath}:${ref.lineNumber}',
+              ),
+            ),
           );
         }
       }
     } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('VS Code not found. '
-              'Navigate to ${ref.filePath}:${ref.lineNumber}')),
+          SnackBar(
+            content: Text(
+              'VS Code not found. '
+              'Navigate to ${ref.filePath}:${ref.lineNumber}',
+            ),
+          ),
         );
       }
     }

@@ -73,6 +73,14 @@ class StateStore {
   final Map<String, TriggerElement> _triggers = {};
   SocketClient? _socketClient;
 
+  /// Enables internal diagnostic logging (persist, import, remote debugging).
+  ///
+  /// Disabled by default. Logging goes through [debugPrint], so it is only
+  /// ever emitted in debug builds, and only when this flag is set to true.
+  ///
+  /// Usage: `StateStore.verbose = kDebugMode;`
+  static bool verbose = false;
+
   factory StateStore() {
     throw ArgumentError('StateStore can not be instantiated. Static only!');
   }
@@ -135,8 +143,7 @@ class StateStore {
   /// Push state change. This will toggle the value of the given id.
   /// and notify all listeners of the change.
   /// NOTE: This only works for bool values and that have already been set at least once.
-  static void dispatchToggle<bool>(String id, {BuildContext? ctx}) {
-    // print("[StateStore]:[dispatch]: $id, $event");
+  static void dispatchToggle(String id, {BuildContext? ctx}) {
     _instance._dispatchToggle(id, ctx: ctx);
   }
 
@@ -211,6 +218,9 @@ class StateStore {
     _instance._dispose();
   }
 
+  /// Dumps the whole store and all triggers via [debugPrint].
+  /// This is an explicit call, so it is not gated by [verbose],
+  /// but it still produces no output in release builds.
   static void prettyPrint() {
     _instance._prettyPrint();
   }
@@ -222,16 +232,16 @@ class StateStore {
 
   static Future<void> import() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
-    print("# import");
+    _log("import: start");
     for (var i in prefs.getKeys()) {
       String item = prefs.get(i)! as String;
       assert(_instance._store[i] != null,
           'Trying to import $i, but store does not contain setUp for it.');
       _instance._store[i]!.import(item);
-      print(
-          "#    bringing: $i, ${_instance._store[i]!._value}, <${_instance._store[i]!._value.runtimeType}>");
+      _log(
+          "import: $i, ${_instance._store[i]!._value}, <${_instance._store[i]!._value.runtimeType}>");
     }
-    print("# import ready");
+    _log("import: ready");
   }
 
   /// Hackish way to ensure that we always have a reference to the Navigator
@@ -362,10 +372,20 @@ class StateStore {
   }
 
   // Dispatch utility for toggling boolean values.
+  // Asserts in debug builds when the id is unknown or not a bool.
+  // In release builds such calls are a no-op instead of a crash.
   void _dispatchToggle(String id, {BuildContext? ctx}) {
-    var stateElement = _store[id];
-    stateElement!._value = !stateElement._value;
-    _performPostDispatch(id, stateElement.value, stateElement, ctx: ctx);
+    final stateElement = _store[id];
+    assert(stateElement != null,
+        'dispatchToggle: no setUp or prior dispatch for "$id"');
+    final current = stateElement?._value;
+    assert(current is bool,
+        'dispatchToggle: "$id" is not a bool (${current.runtimeType})');
+    if (stateElement == null || current is! bool) {
+      _log('dispatchToggle ignored for "$id": not a bool');
+      return;
+    }
+    _performPostDispatch(id, !current, stateElement, ctx: ctx);
   }
 
   void _performPostDispatch(String id, dynamic value, StateElement stateElement,
@@ -373,7 +393,7 @@ class StateStore {
     try {
       stateElement.update(id, value, ctx);
     } catch (e) {
-      print("### $e");
+      _log("dispatch error for $id: $e");
     }
 
     // Note: Persisted elements need to be set up
@@ -390,7 +410,7 @@ class StateStore {
     Future(() async {
       SharedPreferences prefs = await SharedPreferences.getInstance();
       await prefs.setString(id, value);
-      print("[StateStore]: Persist $id: $value");
+      _log("persist: $id: $value");
     });
   }
 
@@ -429,20 +449,27 @@ class StateStore {
 
   void _prettyPrintStore() {
     _store.forEach((k, v) {
-      print("ID: $k: ");
-      print("    Value:   ${v._value}");
-      print("    Type:    ${v._value.runtimeType}");
+      debugPrint("ID: $k: ");
+      debugPrint("    Value:   ${v._value}");
+      debugPrint("    Type:    ${v._value.runtimeType}");
       if (v._ctx != null) {
-        print("    Context: ${v._ctx}");
+        debugPrint("    Context: ${v._ctx}");
       }
-      print("    Listener count: ${v._listeners!.length}");
+      debugPrint("    Listener count: ${v._listeners!.length}");
     });
   }
 
   void _prettyPrintTriggers() {
     _triggers.forEach((k, v) {
-      print("ID: $k, listeners count: ${v._listeners!.length}");
+      debugPrint("ID: $k, listeners count: ${v._listeners!.length}");
     });
+  }
+
+  /// Internal diagnostic logger. No-op unless [verbose] is true, and
+  /// [debugPrint] itself is a no-op in release builds.
+  static void _log(String message) {
+    if (!verbose) return;
+    debugPrint("[StateStore]: $message");
   }
 
   ////////////////////////////////////////////
@@ -457,10 +484,9 @@ class StateStore {
       SocketClient client = SocketClient(toEncodable: toEncodable);
       await client.connect();
       _socketClient = client;
-      print("[StateStore]: Connected to remote debugging server");
+      _log("connected to remote debugging server");
     } catch (e) {
-      print("[StateStore]: No debugging server available. Bypassing.");
-      print("e: $e");
+      _log("no debugging server available, bypassing: $e");
     }
   }
 

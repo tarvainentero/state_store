@@ -11,6 +11,10 @@ enum TestEnum { one, two, three }
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  /// Optional: enable internal StateStore diagnostics (persist, import,
+  /// remote debugging). Off by default, and never emitted in release builds.
+  StateStore.verbose = kDebugMode;
+
   /// Step 1
   /// Set up all state variables that require initial value
   /// or if you want to mark the variable as persisted.

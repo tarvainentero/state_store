@@ -17,7 +17,7 @@ Add `state_store` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  state_store: ^0.7.0
+  state_store: ^0.8.0
 ```
 
 ## Usage
@@ -106,6 +106,19 @@ if (kDebugMode) {
 ```
 
 See the `state_store_debugger` directory for the remote debugger app.
+
+### 8. Diagnostic logging
+
+StateStore is silent by default. To see internal logs (persist, import,
+remote debugging connection) in debug builds, set:
+
+```dart
+StateStore.verbose = kDebugMode;
+```
+
+Logging uses `debugPrint`, so nothing is ever emitted in release builds,
+even if `verbose` is true. `StateStore.prettyPrint()` is an explicit call and
+is not gated by `verbose`.
 
 ## Example
 

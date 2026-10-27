@@ -1,3 +1,20 @@
+## 0.8.0
+
+- All internal logging is now off by default and goes through `debugPrint`.
+  Enable it in debug builds with `StateStore.verbose = kDebugMode`.
+- `dispatchToggle` no longer declares a bogus `<bool>` type parameter.
+  Call it as `StateStore.dispatchToggle('id')`. Passing `<bool>` is a
+  breaking change for callers that did so.
+- `dispatchToggle` asserts on unknown ids and non-bool values in debug builds
+  and is a no-op for them in release builds instead of crashing.
+
+## 0.7.0
+
+- `persist` is now a named parameter in `setUp`
+- Debugger: code references panel showing where each state id is used, with
+  jump-to-VS-Code
+- Debugger: resizable split pane and code map minimap view
+
 ## 0.6.0
 
 - Add StateStoreMultiBuilder for listening to multiple state IDs
